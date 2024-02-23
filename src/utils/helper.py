@@ -29,6 +29,11 @@ chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument(f'user-agent={os.getenv("USER_AGENT")}')
+chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+chrome_options.add_argument(f'--user-data-dir={os.getenv("USER_DATA_DIR")}')
+
 def get_bot_service():
     creds_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "credentials"))
     creds_file_path = os.path.join(creds_dir, os.getenv("GOOGLE_SHEETS_API_CREDENTIALS_FILE"))
@@ -170,10 +175,8 @@ def upload_to_sendgb(sheet_name, customer_password):
         actions = ActionChains(driver)
 
         #* Click on the link icon
-        link_icon = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, "//label[@title='Link']"))
-        )
-        actions.move_to_element(link_icon).click().perform()
+        link_icon = driver.find_element(By.XPATH, "//label[@title='Link']")
+        link_icon.click()
 
         #* Click on the '+' icon to select a file to upload
         h2_element = driver.find_element(By.XPATH, "//h2[text()='Select file(s)']")
@@ -190,7 +193,7 @@ def upload_to_sendgb(sheet_name, customer_password):
         file_upload_input.send_keys(pdf_file_path)
 
         #* Click on the 'Password (Optional)' input field
-        password_input = WebDriverWait(driver, 15).until(
+        password_input = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.XPATH, "//input[@id='password']"))
         )
         actions.move_to_element(password_input).click().perform()
@@ -203,7 +206,7 @@ def upload_to_sendgb(sheet_name, customer_password):
         actions.move_to_element(share_button).click().perform()
 
         #* Retrieve the download link
-        copied_link_element = WebDriverWait(driver, 15).until(
+        copied_link_element = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "button#copy-button"))
         )
         copied_link = copied_link_element.get_attribute("data-clipboard-text")
