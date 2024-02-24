@@ -25,15 +25,15 @@ percent_file_path = os.path.normpath(percent_file_path)
 
 # Run Chrome in headless mode (no GUI)
 chrome_options = webdriver.ChromeOptions()
-
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--window-size=1250x500")
+chrome_options.add_argument("--window-size=1250x600")
 
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument(f'user-agent={os.getenv("USER_AGENT")}')
 chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 chrome_options.add_argument(f'--user-data-dir={os.getenv("USER_DATA_DIR")}')
+
 
 def normalize_command_text(command_text):
     # Ensure proper spacing around '-' and '@', and remove commas
@@ -86,16 +86,21 @@ def take_screenshot(sheet_name):
         driver = webdriver.Chrome(options=chrome_options)
         spreadsheet_url = os.getenv("GOOGLE_SHEET_URL")        
         driver.get(spreadsheet_url)
-        driver.implicitly_wait(3)
-
-        sheet_xpath = f"//span[@class='docs-sheet-tab-name' and text()='{sheet_name}']"
 
         sheet_element = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.XPATH, sheet_xpath))
+            EC.presence_of_element_located((By.XPATH, f"//span[@class='docs-sheet-tab-name' and text()='{sheet_name}']"))
         )
         sheet_element.click()
 
-        driver.implicitly_wait(2)  # Wait for the sheet to load
+        # Hide the sheet tabs using JavaScript
+        driver.execute_script("""
+            document.querySelector('div[role="navigation"][aria-label="Sheet tab bar"]').style.visibility = 'hidden';
+        """)
+
+        # Wait for the UI to update after hiding the tab bar
+        WebDriverWait(driver, 2).until(lambda d: d.execute_script(
+            "return document.readyState") == "complete")
+        
         driver.save_screenshot(screenshot_filename) # Take a screenshot of the sheet
     except Exception as e:
         logger.error(f"Screenshot error occurred with selenium driver: {e}")
@@ -120,7 +125,7 @@ def send_one_time_photo(update: Update, context: CallbackContext, filename: str,
     # Delete the file after sending
     try:
         os.remove(filename)
-        logger.info(f"File {filename} deleted successfully.")
+        logger.info(f"File {filename} deleted successfully")
     except Exception as e:
         logger.error(f"Error deleting file {filename}: {e}")
     
@@ -226,7 +231,7 @@ def upload_to_sendgb(sheet_name, customer_password):
     finally:
         try:
             os.remove(pdf_file_path)
-            logger.info(f"File {pdf_file_path} deleted successfully.")
+            logger.info(f"File {pdf_file_path} deleted successfully")
         except Exception as e:
             logger.error(f"Error deleting file {pdf_file_path}: {e}")
             
