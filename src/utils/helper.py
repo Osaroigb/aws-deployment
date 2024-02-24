@@ -1,5 +1,5 @@
 import os
-import logging
+import re
 import requests
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -7,6 +7,7 @@ from telegram.utils.request import Request
 from selenium.webdriver.common.by import By
 from googleapiclient.discovery import build
 from forex_python.converter import CurrencyRates
+from utils.custom_logger import get_custom_logger
 from telegram.ext import Updater, CallbackContext
 from telegram import Bot, Update, InputMediaPhoto
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,7 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from oauth2client.service_account import ServiceAccountCredentials
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+logger = get_custom_logger(__name__)
 
 # Define the file path for storing the interest percent
 percent_file_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "credentials"))
@@ -27,12 +28,20 @@ chrome_options = webdriver.ChromeOptions()
 
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--window-size=1250x500")
 
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument(f'user-agent={os.getenv("USER_AGENT")}')
 chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 chrome_options.add_argument(f'--user-data-dir={os.getenv("USER_DATA_DIR")}')
+
+def normalize_command_text(command_text):
+    # Ensure proper spacing around '-' and '@', and remove commas
+    command_text = command_text.replace(',', '')
+    command_text = re.sub(r'(\d+)([A-Z]{3})', r'\1 \2', command_text)  # Ensure space between amount and currency
+    command_text = re.sub(r'\s*-\s*', ' - ', command_text)  # Space around '-'
+    command_text = re.sub(r'@\s*', ' @', command_text)  # Ensure single space before '@'
+    return command_text
 
 def get_bot_service():
     creds_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "credentials"))
@@ -89,7 +98,7 @@ def take_screenshot(sheet_name):
         driver.implicitly_wait(2)  # Wait for the sheet to load
         driver.save_screenshot(screenshot_filename) # Take a screenshot of the sheet
     except Exception as e:
-        logging.error(f"Screenshot error occurred with selenium driver: {e}")
+        logger.error(f"Screenshot error occurred with selenium driver: {e}")
     finally:
         driver.close()
 
@@ -111,9 +120,9 @@ def send_one_time_photo(update: Update, context: CallbackContext, filename: str,
     # Delete the file after sending
     try:
         os.remove(filename)
-        logging.info(f"File {filename} deleted successfully.")
+        logger.info(f"File {filename} deleted successfully.")
     except Exception as e:
-        logging.error(f"Error deleting file {filename}: {e}")
+        logger.error(f"Error deleting file {filename}: {e}")
     
 
 def get_sheet_id(sheet_service, sheet_name):
@@ -161,7 +170,7 @@ def download_pdf_sheet(sheet_name):
 
         return output_file
     except Exception as e:
-        logging.error(f"Error downloading sheet: {str(e)}")
+        logger.error(f"Error downloading sheet: {str(e)}")
 
 
 def upload_to_sendgb(sheet_name, customer_password):
@@ -213,13 +222,13 @@ def upload_to_sendgb(sheet_name, customer_password):
 
         return copied_link
     except Exception as e:
-        logging.error(f"Upload error occurred with selenium driver: {e}")
+        logger.error(f"Upload error occurred with selenium driver: {e}")
     finally:
         try:
             os.remove(pdf_file_path)
-            logging.info(f"File {pdf_file_path} deleted successfully.")
+            logger.info(f"File {pdf_file_path} deleted successfully.")
         except Exception as e:
-            logging.error(f"Error deleting file {pdf_file_path}: {e}")
+            logger.error(f"Error deleting file {pdf_file_path}: {e}")
             
         driver.close()
 
@@ -256,7 +265,7 @@ def get_existing_sheets(spreadsheet_id, sheets_service):
         return sheet_names
 
     except Exception as e:
-        logging.error(f"Error getting existing sheets: {str(e)}")
+        logger.error(f"Error getting existing sheets: {str(e)}")
         return []
 
 
