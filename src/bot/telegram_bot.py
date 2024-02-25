@@ -112,7 +112,14 @@ def setup_bot():
 
         try:
             command_text = update.message.text[len('/PI '):].strip()  # Remove command prefix and strip whitespace
-            pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+(\d+)([A-Z]{3})\s*@\s*(\d+(\.\d{1,8})?)\s*(?:@\s*(\d+(\.\d{1,2})?))?\s*(\d{2}/\d{2}/\d{2})?')
+        
+            pattern = re.compile(
+                r'(\w+)\s*-\s*(.*?)\s+([\d,]+)\s*([A-Z]{3})'  # Sheet name, reference, amount, currency
+                r'(?:\s*@\s*(\d+(\.\d+)?))?'                  # Optional exchange rate
+                r'(?:\s*@\s*(\d+(\.\d{1,2})?))?'              # Optional interest rate
+                r'(?:\s+(\d{1,2}/\d{1,2}/\d{2,4}))?'          # Optional date
+            )
+
             match = pattern.search(command_text)
             
             if not match:
@@ -124,10 +131,10 @@ def setup_bot():
             sheet_name, reference, amount_str, currency, rate_str, _, percent_str, _, date_str = match.groups()
 
             sheet_name = sheet_name.lower()
-            amount = int(amount_str)
+            amount = int(amount_str.replace(',', '')) 
             exchange_rate = round(float(rate_str), 8) if rate_str else get_real_time_exchange_rate(currency.upper(), "EUR")
             percentage = round(float(percent_str), 2) if percent_str else default_interest_percent
-            date = datetime.strptime(date_str, "%d/%m/%y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
+            date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
             logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {percentage} \nDate: {date}")
             existing_sheets = get_existing_sheets(existing_sheet_id, sheet_service)
@@ -189,8 +196,8 @@ def setup_bot():
         if not match:
             logger.error("Invalid format for payment details")
             update.message.reply_text("Please provide a valid format for payment details\n\n"
-                                      "Format: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yy]\n\n"
-                                      "Example: /PO Harry-First payment 500EUR 22/01/24")
+                                      "Format: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yyyy]\n\n"
+                                      "Example: /PO Harry-First payment 500EUR 22/01/2024")
             return
 
         sheet_name, reference, amount_str, currency, date_str = match.groups()
@@ -198,7 +205,7 @@ def setup_bot():
 
         sheet_name = sheet_name.lower()
         exchange_rate = get_real_time_exchange_rate("GBP", currency.upper())
-        date = datetime.strptime(date_str, "%d/%m/%y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
+        date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
         logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {eur_amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {default_interest_percent} \nDate: {date}")
         
@@ -427,10 +434,10 @@ def setup_bot():
             query.edit_message_text(text="Please provide Sheet name and Password\n\nFormat: /NC [Sheet name] [Password]\n\nExample: /NC Zangetsu Password123")
             return
         elif query.data == "payments_in":
-            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][Currency] @[Rate] @[Percent] [dd/mm/yy]\n\nExample: /PI Harry-First deposit 1000GBP @1.1203 @7.0 17/01/24")
+            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][Currency] @[Rate] @[Percent] [dd/mm/yyyy]\n\nExample: /PI Harry-First deposit 1000GBP @1.1203 @7.0 17/01/2024")
             return
         elif query.data == "payments_out":
-            query.edit_message_text(text="Please provide payment details\n\nFormat: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yy]\n\nExample: /PO Harry-First payment 500EUR 22/01/24")
+            query.edit_message_text(text="Please provide payment details\n\nFormat: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yyyy]\n\nExample: /PO Harry-First payment 500EUR 22/01/2024")
             return
         elif query.data == "change_percent":
             query.edit_message_text(text="Please provide new percent assumption\n\nFormat: /CP [Percent Amount]\n\nExample: /CP 12.5")
