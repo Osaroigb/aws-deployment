@@ -35,14 +35,6 @@ chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 chrome_options.add_argument(f'--user-data-dir={os.getenv("USER_DATA_DIR")}')
 
 
-def normalize_command_text(command_text):
-    # Ensure proper spacing around '-' and '@', and remove commas
-    command_text = command_text.replace(',', '')
-    command_text = re.sub(r'(\d+)([A-Z]{3})', r'\1 \2', command_text)  # Ensure space between amount and currency
-    command_text = re.sub(r'\s*-\s*', ' - ', command_text)  # Space around '-'
-    command_text = re.sub(r'@\s*', ' @', command_text)  # Ensure single space before '@'
-    return command_text
-
 def get_bot_service():
     creds_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "credentials"))
     creds_file_path = os.path.join(creds_dir, os.getenv("GOOGLE_SHEETS_API_CREDENTIALS_FILE"))

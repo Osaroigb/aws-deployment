@@ -17,8 +17,7 @@ from utils.helper import (
     take_screenshot,
     upload_to_sendgb,
     send_one_time_photo,
-    get_bot_service,
-    normalize_command_text
+    get_bot_service
 )
 
 load_dotenv()
@@ -112,23 +111,23 @@ def setup_bot():
         global default_interest_percent # Access the global variable
 
         try:
-            command_text = normalize_command_text(update.message.text)
-            pattern = re.compile(r'/payments_in\s+(.+?)\s+-\s+(.+?)\s+(\d+)\s+([A-Z]{3})\s*(?:@(\d+(\.\d{1,8})?))?\s*(?:@(\d+(\.\d{1,2})?))?\s*(\d{2}/\d{2}/\d{2})?')
+            command_text = update.message.text[len('/PI '):].strip()  # Remove command prefix and strip whitespace
+            pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+(\d+)([A-Z]{3})\s*@\s*(\d+(\.\d{1,8})?)\s*(?:@\s*(\d+(\.\d{1,2})?))?\s*(\d{2}/\d{2}/\d{2})?')
             match = pattern.search(command_text)
             
             if not match:
                 logger.error("Couldn't parse the command. Please check the format and try again")
                 update.message.reply_text("Couldn't parse the command. Please check the format and try again")
                 return
-            
-            sheet_name, reference, amount_str, currency = match.group(1), match.group(2), match.group(3), match.group(4)
-            rate_str, percent_str, date_str = match.group(5), match.group(7), match.group(9)
+
+            # Extracting the matched groups with default values for optional fields
+            sheet_name, reference, amount_str, currency, rate_str, _, percent_str, _, date_str = match.groups()
 
             sheet_name = sheet_name.lower()
             amount = int(amount_str)
             exchange_rate = round(float(rate_str), 8) if rate_str else get_real_time_exchange_rate(currency.upper(), "EUR")
             percentage = round(float(percent_str), 2) if percent_str else default_interest_percent
-            date = date_str if date_str else datetime.now().strftime("%d/%m/%y")
+            date = datetime.strptime(date_str, "%d/%m/%y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
             logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {percentage} \nDate: {date}")
             existing_sheets = get_existing_sheets(existing_sheet_id, sheet_service)
@@ -183,8 +182,8 @@ def setup_bot():
 
         global default_interest_percent
 
-        command_text = update.message.text[4:].strip()  # Remove command prefix '/PO ' and strip any leading/trailing whitespace
-        pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+(\d{1,3}(?:,\d{3})*?)\s*([A-Z]{3})\s*(\d{2}/\d{2}/\d{4})?')
+        command_text = update.message.text[len('/PO '):].strip()  # Adjust the slice to remove '/PO ' prefix correctly
+        pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+(\d{1,3}(?:,\d{3})*)\s*([A-Z]{3})\s*(\d{2}/\d{2}/\d{2,4})?')
 
         match = pattern.search(command_text)
         if not match:
@@ -198,8 +197,8 @@ def setup_bot():
         eur_amount = int(amount_str.replace(',', ''))  # Remove commas from amount and convert to int
 
         sheet_name = sheet_name.lower()
-        exchange_rate = get_real_time_exchange_rate(currency.upper(), "EUR")
-        date = date_str if date_str else datetime.now().strftime("%d/%m/%y")  # Default date is the present date
+        exchange_rate = get_real_time_exchange_rate("GBP", currency.upper())
+        date = datetime.strptime(date_str, "%d/%m/%y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
         logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {eur_amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {default_interest_percent} \nDate: {date}")
         
@@ -374,8 +373,7 @@ def setup_bot():
             customer_password = password_response.get('values', [[0]])[0][0]
 
             # Upload the customer's sheet to SendGB and get a link
-            # sendgb_link = upload_to_sendgb(sheet_title, customer_password)
-            sendgb_link = "https://github.com"
+            sendgb_link = upload_to_sendgb(sheet_title, customer_password)
 
             # Generate a one-time photo of the customer's sheet and send it
             send_one_time_photo(update, context, screenshot_filename, sheet_name)
@@ -390,9 +388,34 @@ def setup_bot():
             update.message.reply_text(f"Error requesting sheet information: {str(e)}")
 
 
+    def list_sheet(update, context):
+        # Implement logic for listing all customer's sheets
+        logger.info("User sent command: /LS")
+        logger.info("Handling /list_sheet command...")
+
+        try:
+            existing_sheets = get_existing_sheets(existing_sheet_id, sheet_service)
+            formatted_sheets = [sheet.replace(' GBP/EUR', '') for sheet in existing_sheets]
+            sheets_str = ', '.join(formatted_sheets)
+
+            logger.info(f"These are all the available sheets: {sheets_str}")
+            update.callback_query.message.reply_text(f"These are all the available sheets: {sheets_str}")
+        except Exception as e:
+            logger.error(f"Error listing sheets: {str(e)}")
+            update.callback_query.message.reply_text(f"Error listing sheets: {str(e)}")
+
+
     def error_handler(update, context):
-        logger.error(f"An unexpected error occured: {context.error}")
-        update.message.reply_text("An unexpected error occurred. Please try again")
+        logger.error(f"An unexpected error occurred: {context.error}")
+        
+        # Check if the error occurred during a callback query handling
+        if update.callback_query:
+            update.callback_query.message.reply_text("An unexpected error occurred. Please try again")
+
+        elif update.message:
+            update.message.reply_text("An unexpected error occurred. Please try again")
+        else:
+            logger.error("The error handler was called but no message or callback query was available to reply to")
 
 
     def button(update, context):
@@ -400,23 +423,27 @@ def setup_bot():
         query.answer()
 
         # Send a message with instructions
-        if query.data == 'new_customer':
+        if query.data == "new_customer":
             query.edit_message_text(text="Please provide Sheet name and Password\n\nFormat: /NC [Sheet name] [Password]\n\nExample: /NC Zangetsu Password123")
             return
-        elif query.data == 'payments_in':
-            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][Currency] @[Rate] @[Percent] [dd/mm/yy]\n\nExample: /PI Harry-First deposit 1000GBP @1.1203 @7.0 11/01/24")
+        elif query.data == "payments_in":
+            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][Currency] @[Rate] @[Percent] [dd/mm/yy]\n\nExample: /PI Harry-First deposit 1000GBP @1.1203 @7.0 17/01/24")
             return
-        elif query.data == 'payments_out':
+        elif query.data == "payments_out":
             query.edit_message_text(text="Please provide payment details\n\nFormat: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yy]\n\nExample: /PO Harry-First payment 500EUR 22/01/24")
             return
-        elif query.data == 'change_percent':
+        elif query.data == "change_percent":
             query.edit_message_text(text="Please provide new percent assumption\n\nFormat: /CP [Percent Amount]\n\nExample: /CP 12.5")
             return
-        elif query.data == 'change_sheet_password':
+        elif query.data == "change_sheet_password":
             query.edit_message_text(text="Please provide new customer password\n\nFormat: /CSP [Customer]-[New Password]\n\nExample: /CSP Harry-Imagine123")
             return
-        elif query.data == 'request_sheet':
+        elif query.data == "request_sheet":
             query.edit_message_text(text="Please provide a Sheet name\n\nFormat: /RS [Sheet name]\n\nExample: /RS Harry")
+            return
+        elif query.data == "list_sheet":
+            context.args = []
+            list_sheet(update, context)
             return
 
     # Add Command Handlers
@@ -429,6 +456,7 @@ def setup_bot():
     dispatcher.add_handler(CommandHandler("CP", change_percent_assumptions))
     dispatcher.add_handler(CommandHandler("CSP", change_sheet_password))
     dispatcher.add_handler(CommandHandler("RS", request_sheet))
+    dispatcher.add_handler(CommandHandler("LS", list_sheet))
 
     dispatcher.add_error_handler(error_handler)
 
@@ -443,7 +471,8 @@ def start(update, context):
             [InlineKeyboardButton("payments_out", callback_data='payments_out')],
             [InlineKeyboardButton("change_percent", callback_data='change_percent')],
             [InlineKeyboardButton("change_sheet_password", callback_data='change_sheet_password')],
-            [InlineKeyboardButton("request_sheet", callback_data='request_sheet')]
+            [InlineKeyboardButton("request_sheet", callback_data='request_sheet')],
+            [InlineKeyboardButton("list_sheet", callback_data='list_sheet')]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
