@@ -179,12 +179,11 @@ def upload_to_sendgb(sheet_name, customer_password):
 
         driver.get(sendgb_url)
         actions = ActionChains(driver)
+        WebDriverWait(driver, 3)
 
         #* Click on the link icon
-        link_icon = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, "//label[@title='Link']"))
-        )
-        actions.move_to_element(link_icon).click().perform()
+        link_icon = driver.find_element(By.XPATH, "//label[@title='Link']")
+        link_icon.click()
 
         #* Click on the '+' icon to select a file to upload
         h2_element = driver.find_element(By.XPATH, "//h2[text()='Select file(s)']")
