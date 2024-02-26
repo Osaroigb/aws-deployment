@@ -190,7 +190,7 @@ def setup_bot():
         global default_interest_percent
 
         command_text = update.message.text[len('/PO '):].strip()  # Adjust the slice to remove '/PO ' prefix correctly        
-        pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+([\d,]+)\s*([A-Z]{3})\s*(\d{2}/\d{2}/\d{4})?')
+        pattern = re.compile(r'(\w+)\s*-\s*(.*?)\s+([\d,]+)\s*(EUR)\s*(\d{2}/\d{2}/\d{4})?')
 
         match = pattern.search(command_text)
         if not match:
