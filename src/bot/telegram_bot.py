@@ -8,7 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, CallbackQueryHandler
 
 from utils.helper import (
-    get_real_time_exchange_rate, 
+    get_fx_daily_low,
     get_existing_sheets, 
     update_sheet_values, 
     find_empty_row, 
@@ -132,7 +132,7 @@ def setup_bot():
 
             sheet_name = sheet_name.lower()
             amount = int(amount_str.replace(',', '')) 
-            exchange_rate = round(float(rate_str), 8) if rate_str else get_real_time_exchange_rate(currency.upper(), "EUR")
+            exchange_rate = round(float(rate_str), 8) if rate_str else get_fx_daily_low(currency.upper(), "EUR")
             percentage = round(float(percent_str), 2) if percent_str else default_interest_percent
             date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
@@ -202,9 +202,9 @@ def setup_bot():
 
         sheet_name, reference, amount_str, currency, date_str = match.groups()
         eur_amount = int(amount_str.replace(',', ''))  # Remove commas from amount and convert to int
-
+        
         sheet_name = sheet_name.lower()
-        exchange_rate = get_real_time_exchange_rate("GBP", currency.upper())
+        exchange_rate = get_fx_daily_low("GBP", currency.upper())
         date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
         logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {eur_amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {default_interest_percent} \nDate: {date}")

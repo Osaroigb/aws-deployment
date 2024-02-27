@@ -6,7 +6,6 @@ from selenium import webdriver
 from telegram.utils.request import Request
 from selenium.webdriver.common.by import By
 from googleapiclient.discovery import build
-from forex_python.converter import CurrencyRates
 from utils.custom_logger import get_custom_logger
 from telegram.ext import Updater, CallbackContext
 from telegram import Bot, Update, InputMediaPhoto
@@ -244,11 +243,30 @@ def load_percent_from_file():
             return float(file.read())
     
 
-# Function to get real-time exchange rate using forex_python
-def get_real_time_exchange_rate(base_currency, target_currency):
-    c = CurrencyRates()
-    rate = c.get_rate(base_currency, target_currency)
-    return round(rate, 4)
+def get_fx_daily_low(base_currency, target_currency):
+    url = "https://www.alphavantage.co/query"
+    params = {
+        "function": "FX_DAILY",
+        "from_symbol": base_currency,
+        "to_symbol": target_currency,
+        "apikey": os.getenv("API_KEY") ,
+        "outputsize": "compact"  # or 'full' for more data
+    }
+
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    # The response structure might vary, so adjust the parsing as needed
+    try:
+        time_series = data['Time Series FX (Daily)']
+        today = list(time_series.keys())[0]  # Assuming the first key is today
+        daily_data = time_series[today]
+
+        daily_low = daily_data['3. low']
+        logger.info(f"Daily low for GBP/EUR on {today}: {daily_low}")
+        return daily_low
+    except KeyError:
+        logger.error("Error retrieving data. Check your API key and quota.")
 
 
 def get_existing_sheets(spreadsheet_id, sheets_service):
