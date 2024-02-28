@@ -168,8 +168,8 @@ def setup_bot():
             # Update the EUR balance in cell K3
             update_sheet_values(sheet_service, existing_sheet_id, eur_balance_range, [[new_eur_balance]])
 
-            logger.info(f"Deposit record added successfully for '{sheet_name} GBP/EUR'")
-            update.message.reply_text(f"Deposit record added successfully for '{sheet_name} GBP/EUR'")
+            logger.info(f"Deposit record added successfully for '{sheet_name} GBP/EUR'. New balance is {new_eur_balance} EUR")
+            update.message.reply_text(f"Deposit record added successfully for '{sheet_name} GBP/EUR'. New balance is {new_eur_balance} EUR")
 
         except ValueError as e:
             logger.error(f"ValueError occurred: {str(e)}")
