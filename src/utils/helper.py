@@ -264,7 +264,8 @@ def get_fx_daily_low(base_currency, target_currency):
 
         daily_low = daily_data['3. low']
         logger.info(f"Daily low for GBP/EUR on {today}: {daily_low}")
-        return daily_low
+
+        return float(daily_low)
     except KeyError:
         logger.error("Error retrieving data. Check your API key and quota.")
 
