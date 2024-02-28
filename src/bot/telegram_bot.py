@@ -228,10 +228,10 @@ def setup_bot():
             eur_balance = int(eur_balance_response.get('values', [[0]])[0][0])
 
             # Check if the payment amount exceeds the EUR balance
-            if eur_amount > eur_balance:
-                logger.error(f"Error: Insufficient funds. The requested payment amount exceeds the available EUR balance")
-                update.message.reply_text(f"Error: Insufficient funds. The requested payment amount exceeds the available EUR balance")
-                return
+            # if eur_amount > eur_balance:
+            #     logger.error(f"Error: Insufficient funds. The requested payment amount exceeds the available EUR balance")
+            #     update.message.reply_text(f"Error: Insufficient funds. The requested payment amount exceeds the available EUR balance")
+            #     return
             
             # Find the first empty row in the specified sheet
             empty_row = find_empty_row(sheet_service, existing_sheet_id, sheet_name)
@@ -260,8 +260,8 @@ def setup_bot():
             new_eur_balance = eur_balance - eur_amount
             update_sheet_values(sheet_service, existing_sheet_id, eur_balance_range, [[new_eur_balance]]) 
 
-            logger.info(f"Payment record added successfully for '{sheet_name} GBP/EUR'")
-            update.message.reply_text(f"Payment record added successfully for '{sheet_name} GBP/EUR'")
+            logger.info(f"Payment record added successfully for '{sheet_name} GBP/EUR'. New balance is {new_eur_balance} EUR")
+            update.message.reply_text(f"Payment record added successfully for '{sheet_name} GBP/EUR'. New balance is {new_eur_balance} EUR")
         
         except ValueError as e:
             logger.error(f"ValueError occurred: {str(e)}")
