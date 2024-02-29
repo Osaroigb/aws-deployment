@@ -114,10 +114,11 @@ def setup_bot():
             command_text = update.message.text[len('/PI '):].strip()  # Remove command prefix and strip whitespace
         
             pattern = re.compile(
-                r'(\w+)\s*-\s*(.*?)\s+([\d,]+)\s*([A-Z]{3})'  # Sheet name, reference, amount, currency
-                r'(?:\s*@\s*(\d+(\.\d+)?))?'                  # Optional exchange rate
-                r'(?:\s*@\s*(\d+(\.\d{1,2})?))?'              # Optional interest rate
-                r'(?:\s+(\d{1,2}/\d{1,2}/\d{2,4}))?'          # Optional date
+                r'(\w+)\s*-\s*(.*?)\s+([\d,]+)\s*GBP'  # Sheet name, reference, total_units/gbp_amount, currency
+                r'(?:\s+([\d,]+)\s*J)?'               # Optional jock_amount
+                r'(?:\s*@\s*(\d+(\.\d+)?))?'          # Optional exchange rate
+                r'(?:\s*@\s*(\d+(\.\d{1,2})?))?'      # Optional interest rate
+                r'(?:\s+(\d{1,2}/\d{1,2}/\d{2,4}))?'  # Optional date
             )
 
             match = pattern.search(command_text)
@@ -128,16 +129,26 @@ def setup_bot():
                 return
 
             # Extracting the matched groups with default values for optional fields
-            sheet_name, reference, amount_str, currency, rate_str, _, percent_str, _, date_str = match.groups()
+            sheet_name, reference, amount_str, jock_amount_str, rate_str, _, percent_str, _, date_str = match.groups()
 
-            jock_amount = 0
             sheet_name = sheet_name.lower()
-            amount = int(amount_str.replace(',', '')) 
-            exchange_rate = round(float(rate_str), 8) if rate_str else get_fx_daily_low(currency.upper(), "EUR")
+            total_units = int(amount_str.replace(',', ''))  # Remove commas
+            jock_amount = int(jock_amount_str.replace(',', '')) if jock_amount_str else 0
+
+            if jock_amount >= total_units:
+                logger.error("Jock amount can't be more than total units")
+                update.message.reply_text("Jock amount can't be more than total units")
+                return
+            
+            gbp_amount1 = total_units - jock_amount if jock_amount_str else total_units
+            gbp_amount2 = int(jock_amount * 0.97) if jock_amount_str else 0  # Subtract 3% of jock_amount
+            amount = gbp_amount1 + gbp_amount2
+
+            exchange_rate = round(float(rate_str), 8) if rate_str else get_fx_daily_low("GBP", "EUR")
             percentage = round(float(percent_str), 2) if percent_str else default_interest_percent
             date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
 
-            logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {amount} \nCurrency: {currency.upper()} \nExchange Rate: {exchange_rate} \nInterest Percent: {percentage} \nDate: {date}")
+            logger.info(f"Extracted details below \nSheet Name: {sheet_name} \nReference: {reference} \nPayment Amount: {amount} \nJock Amount: {jock_amount} \nExchange Rate: {exchange_rate} \nInterest Percent: {percentage} \nDate: {date}")
             existing_sheets = get_existing_sheets(existing_sheet_id, sheet_service)
 
             # Check if the sheet exists
@@ -436,7 +447,7 @@ def setup_bot():
             query.edit_message_text(text="Please provide Sheet name and Password\n\nFormat: /NC [Sheet name] [Password]\n\nExample: /NC Zangetsu Password123")
             return
         elif query.data == "payments_in":
-            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][Currency] @[Rate] @[Percent] [dd/mm/yyyy]\n\nExample: /PI Harry-First deposit 1000GBP @1.1203 @7.0 17/01/2024")
+            query.edit_message_text(text="Please provide payment details\n\nFormat: /PI [Sheet name]-[Reference] [Amount][GBP] [Amount][Jock] @[Rate] @[Percent] [dd/mm/yyyy]\n\nExample: /PI Harry-First deposit 1000GBP 200J @1.1203 @7.0 17/01/2024")
             return
         elif query.data == "payments_out":
             query.edit_message_text(text="Please provide payment details\n\nFormat: /PO [Sheet name]-[Reference] [Amount][Currency] [dd/mm/yyyy]\n\nExample: /PO Harry-First payment 500EUR 22/01/2024")
