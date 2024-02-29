@@ -80,18 +80,18 @@ def setup_bot():
             ).execute()
 
             # Add header row to the new sheet
-            header_row = [["Date", "Description", "GBP Amount", "Exchange Rate", "Interest Percent", "EUR Amount", "EUR Paid"]]
-            header_range = f"{sheet_name} GBP/EUR!A1:G1"
+            header_row = [["Date", "Description", "GBP Amount", "Jock Amount", "Exchange Rate", "Interest Percent", "EUR Amount", "EUR Paid"]]
+            header_range = f"{sheet_name} GBP/EUR!A1:H1"
 
             update_sheet_values(sheet_service, existing_sheet_id, header_range, header_row)
 
             initial_values = [["Total Due EUR"], ["Total Paid EUR"], ["Balance EUR"], ["Password"]]
-            initial_range = f"{sheet_name} GBP/EUR!I1:I4"
+            initial_range = f"{sheet_name} GBP/EUR!J1:J4"
 
             update_sheet_values(sheet_service, existing_sheet_id, initial_range, initial_values)
 
             new_values = [[0], [0], [0], [customer_password]]
-            new_range = f"{sheet_name} GBP/EUR!J1:J4"
+            new_range = f"{sheet_name} GBP/EUR!K1:K4"
 
             update_sheet_values(sheet_service, existing_sheet_id, new_range, new_values)
 
@@ -130,6 +130,7 @@ def setup_bot():
             # Extracting the matched groups with default values for optional fields
             sheet_name, reference, amount_str, currency, rate_str, _, percent_str, _, date_str = match.groups()
 
+            jock_amount = 0
             sheet_name = sheet_name.lower()
             amount = int(amount_str.replace(',', '')) 
             exchange_rate = round(float(rate_str), 8) if rate_str else get_fx_daily_low(currency.upper(), "EUR")
@@ -150,13 +151,13 @@ def setup_bot():
             eur_amount = math.ceil((amount * (1 - percentage/100)) * exchange_rate)
 
             # Add a new record to the customer's sheet
-            record_values = [[date, reference, amount, exchange_rate, percentage, eur_amount, ""]]
-            record_range = f"{sheet_name} GBP/EUR!A{empty_row}:G{empty_row}"
+            record_values = [[date, reference, amount, jock_amount, exchange_rate, percentage, eur_amount, ""]]
+            record_range = f"{sheet_name} GBP/EUR!A{empty_row}:H{empty_row}"
 
             update_sheet_values(sheet_service, existing_sheet_id, record_range, record_values)
 
-            # Get the current EUR balance from cell J3
-            eur_balance_range = f"{sheet_name} GBP/EUR!J3"
+            # Get the current EUR balance from cell K3
+            eur_balance_range = f"{sheet_name} GBP/EUR!K3"
             eur_balance_response = sheet_service.spreadsheets().values().get(
                 spreadsheetId=existing_sheet_id,
                 range=eur_balance_range
@@ -203,6 +204,7 @@ def setup_bot():
         sheet_name, reference, amount_str, currency, date_str = match.groups()
         eur_amount = int(amount_str.replace(',', ''))  # Remove commas from amount and convert to int
         
+        jock_amount = 0
         sheet_name = sheet_name.lower()
         exchange_rate = get_fx_daily_low("GBP", currency.upper())
         date = datetime.strptime(date_str, "%d/%m/%Y").strftime("%d/%m/%Y") if date_str else datetime.now().strftime("%d/%m/%Y")
@@ -218,8 +220,8 @@ def setup_bot():
                 update.message.reply_text(f"Sheet '{sheet_name} GBP/EUR' does not exist")
                 return
             
-            # Get the current EUR balance from cell J3
-            eur_balance_range = f"{sheet_name} GBP/EUR!J3"
+            # Get the current EUR balance from cell K3
+            eur_balance_range = f"{sheet_name} GBP/EUR!K3"
             eur_balance_response = sheet_service.spreadsheets().values().get(
                 spreadsheetId=existing_sheet_id,
                 range=eur_balance_range
@@ -238,13 +240,13 @@ def setup_bot():
             gbp_amount = math.ceil((eur_amount/exchange_rate) / (1 - default_interest_percent/100))
 
             # Add a new record to the customer's sheet
-            record_values = [[date, reference, gbp_amount, exchange_rate, default_interest_percent, "", eur_amount]]
-            record_range = f"{sheet_name} GBP/EUR!A{empty_row}:G{empty_row}"
+            record_values = [[date, reference, gbp_amount, jock_amount, exchange_rate, default_interest_percent, "", eur_amount]]
+            record_range = f"{sheet_name} GBP/EUR!A{empty_row}:H{empty_row}"
 
             update_sheet_values(sheet_service, existing_sheet_id, record_range, record_values)
 
-            # Get the current Total Paid EUR from cell J2
-            total_paid_range = f"{sheet_name} GBP/EUR!J2"
+            # Get the current Total Paid EUR from cell K2
+            total_paid_range = f"{sheet_name} GBP/EUR!K2"
             total_paid_response = sheet_service.spreadsheets().values().get(
                 spreadsheetId=existing_sheet_id,
                 range=total_paid_range
@@ -253,7 +255,7 @@ def setup_bot():
             total_paid_balance = int(total_paid_response.get('values', [[0]])[0][0])
             new_total_paid_balance = total_paid_balance + eur_amount
 
-            # Update the Total Paid EUR in cell J2
+            # Update the Total Paid EUR in cell K2
             update_sheet_values(sheet_service, existing_sheet_id, total_paid_range, [[new_total_paid_balance]])
 
             # Update the EUR balance in cell K3
@@ -332,7 +334,7 @@ def setup_bot():
                 update.message.reply_text(f"Sheet '{sheet_name} GBP/EUR' does not exist")
                 return
             
-            password_range = f"{sheet_name} GBP/EUR!J4"
+            password_range = f"{sheet_name} GBP/EUR!K4"
             update_sheet_values(sheet_service, existing_sheet_id, password_range, [[new_password]]) # Update the password in cell K4
 
             logger.info(f"Password changed successfully for sheet '{sheet_name} GBP/EUR'")
@@ -371,7 +373,7 @@ def setup_bot():
             # Take a screenshot of the customer's sheet
             screenshot_filename = take_screenshot(sheet_title)
 
-            password_range = f"{sheet_name} GBP/EUR!J4"
+            password_range = f"{sheet_name} GBP/EUR!K4"
             password_response = sheet_service.spreadsheets().values().get(
                 spreadsheetId=existing_sheet_id,
                 range=password_range

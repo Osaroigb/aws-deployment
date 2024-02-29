@@ -1,5 +1,4 @@
 import os
-import re
 import requests
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -288,7 +287,7 @@ def get_existing_sheets(spreadsheet_id, sheets_service):
 
 def find_empty_row(sheet_service, spreadsheet_id, sheet_name):
     # Find the first empty row in the specified sheet
-    values_range = f"{sheet_name} GBP/EUR!A:G"
+    values_range = f"{sheet_name} GBP/EUR!A:H"
     result = sheet_service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=values_range).execute()
     values = result.get('values', [])
 
